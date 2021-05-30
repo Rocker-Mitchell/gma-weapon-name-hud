@@ -1,58 +1,68 @@
--- CCV that enables the hud
-CreateClientConVar("weapon_name_hud", 0)
-
--- Tool Menu Panels
-hook.Add("AddToolMenuTabs", "weapon_name_hud", function()
-    spawnmenu.AddToolMenuOption("Options", "Player", "weapon_name_hud",
-                                "Weapon Name HUD", "", "", function(Panel)
-        -- make checkbox for turning hud on
-        local weapon_name_hud = vgui.Create("DCheckBoxLabel")
-        weapon_name_hud:SetText("Turn the weapon name HUD on")
-        weapon_name_hud:SetTextColor(Color(0, 0, 0, 255))
-        weapon_name_hud:SetConVar("weapon_name_hud")
-        weapon_name_hud:SetValue(GetConVarNumber("weapon_name_hud"))
-        Panel:AddItem(weapon_name_hud)
-    end)
-end)
-
+-- convar name for enabling hud
+local CV_ENABLE = "weapon_name_hud"
 -- color for the font
-local fontColor = Color(255, 235, 90, 240)
+local FONT_COLOR = Color(255, 235, 90, 240)
 -- color for the background
-local bgColor = Color(0, 0, 0, 80)
+local BG_COLOR = Color(0, 0, 0, 80)
 
--- main painting function
-local function HUDPaint()
+-- client convar that enables the hud
+CreateClientConVar(CV_ENABLE, 0)
+
+-- menu builder
+local function WeaponNameHudMenu()
+    spawnmenu.AddToolMenuOption("Options", "Player", "WeaponNameHud",
+                                "Weapon Name HUD", "", "", function(panel)
+        -- checkbox to enable hud through CCV
+        local checkbox_enable = vgui.Create("DCheckBoxLabel")
+        checkbox_enable:SetText("Turn the weapon name HUD on")
+        checkbox_enable:SetTextColor(Color(0, 0, 0, 255))
+        checkbox_enable:SetConVar(CV_ENABLE)
+        checkbox_enable:SetValue(GetConVarNumber(CV_ENABLE))
+
+        panel:AddItem(checkbox_enable)
+    end)
+end
+
+-- hud painter
+local function WeaponNameHudPaint()
     -- return early when the HUD shouldn't render
-    if GetConVarNumber("weapon_name_hud") == 0 then return end
-    if GetConVarNumber("cl_drawhud") == 0 then return end
-    if not LocalPlayer():Alive() then return end
-    if LocalPlayer():GetActiveWeapon() == NULL then return end
-    if LocalPlayer():GetActiveWeapon() == "Camera" then return end
+    if (GetConVarNumber("cl_drawhud") == 0 or GetConVarNumber(CV_ENABLE) ==
+        0) then return end
+
+    local local_player = LocalPlayer()
+    if (not local_player:Alive()) then return end
+
+    local weapon = local_player:GetActiveWeapon()
+    if (not IsValid(weapon)) then return end
 
     surface.SetFont("HudSelectionText")
 
     -- margin for font to background
     local margin = ScreenScale(6.5)
-    -- the weapon name
-    local name = string.upper(LocalPlayer():GetActiveWeapon():GetPrintName())
 
-    local textWidth, textHeight = surface.GetTextSize(name)
-    local bgWidth = textWidth + 2 * margin
-    local bgHeight = textHeight + 2 * margin
+    local name = string.upper(weapon:GetPrintName())
 
-    local bgX = (ScrW() - bgWidth) / 2
-    local bgY = ScreenScale(12)
-    local fontX = bgX + margin
-    local fontY = bgY + margin
+    local name_width, name_height = surface.GetTextSize(name)
+    local bg_width = name_width + 2 * margin
+    local bg_height = name_height + 2 * margin
+
+    local bg_x = (ScrW() - bg_width) / 2
+    local bg_y = ScreenScale(12)
+    local name_x = bg_x + margin
+    local name_y = bg_y + margin
 
     -- draw the background
-    draw.RoundedBox(ScreenScale(1.525), bgX, bgY, bgWidth, bgHeight, bgColor)
+    draw.RoundedBox(ScreenScale(1.525), bg_x, bg_y, bg_width, bg_height,
+                    BG_COLOR)
 
     -- print the name
-    surface.SetTextColor(fontColor)
-    surface.SetTextPos(fontX, fontY)
+    surface.SetTextColor(FONT_COLOR)
+    surface.SetTextPos(name_x, name_y)
     surface.DrawText(name)
 end
 
--- add HUDPaint() to HUDPaint hook
-hook.Add("HUDPaint", "wepnamehud.HUDPaint()", HUDPaint)
+-- add menu for hud
+hook.Add("AddToolMenuTabs", "WeaponNameHudMenu", WeaponNameHudMenu)
+
+-- add paint of hud
+hook.Add("HUDPaint", "WeaponNameHudPaint", WeaponNameHudPaint)
