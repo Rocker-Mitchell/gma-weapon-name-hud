@@ -1,33 +1,62 @@
 -- convar name for enabling hud
 local CV_ENABLE = "weapon_name_hud"
--- color for the font
-local FONT_COLOR = Color(255, 235, 90, 240)
+-- convar name for tracking font color
+local CV_FONT_COLOR = "weapon_name_hud_font_color"
 -- color for the background
 local BG_COLOR = Color(0, 0, 0, 80)
+-- default color vector for the font; alpha value not tracked
+local FONT_COLOR_VECTOR = Color(255, 235, 90):ToVector()
+-- alpha color for the font
+local FONT_ALPHA = 240
 
 -- client convar that enables the hud
 CreateClientConVar(CV_ENABLE, 0)
+-- client convar tracking font color
+CreateClientConVar(CV_FONT_COLOR, tostring(FONT_COLOR_VECTOR))
 
 -- menu builder
 local function WeaponNameHudMenu()
-    spawnmenu.AddToolMenuOption("Options", "Player", "WeaponNameHud",
-                                "Weapon Name HUD", "", "", function(panel)
-        -- checkbox to enable hud through CCV
-        local checkbox_enable = vgui.Create("DCheckBoxLabel")
-        checkbox_enable:SetText("Turn the weapon name HUD on")
-        checkbox_enable:SetTextColor(Color(0, 0, 0, 255))
-        checkbox_enable:SetConVar(CV_ENABLE)
-        checkbox_enable:SetValue(GetConVarNumber(CV_ENABLE))
+    local function BuildMenu(panel)
+        -- NOTE: panel should be a DForm
 
-        panel:AddItem(checkbox_enable)
-    end)
+        -- checkbox to enable hud through convar
+        panel:CheckBox("Turn the weapon name HUD on", CV_ENABLE)
+
+        -- mixer for font color
+        local font_color_mixer = vgui.Create("DColorMixer")
+        font_color_mixer:SetLabel("Set a custom font color")
+        font_color_mixer:SetAlphaBar(false)
+        font_color_mixer:SetPalette(true)
+        font_color_mixer:SetWangs(true)
+        font_color_mixer:SetVector(Vector(GetConVar(CV_FONT_COLOR):GetString()))
+        function font_color_mixer:ValueChanged(color)
+            -- update convar with new color's vector
+            RunConsoleCommand(CV_FONT_COLOR, tostring(color:ToVector()))
+        end
+        -- BUG: mixer's palette button size too small, leaves gap on last row
+
+        panel:AddItem(font_color_mixer)
+
+        -- button for color reset
+        local font_color_reset = vgui.Create("DButton")
+        font_color_reset:SetText("Reset the font color")
+        function font_color_reset:DoClick()
+            -- udpate mixer with default color vector
+            font_color_mixer:SetVector(FONT_COLOR_VECTOR)
+        end
+
+        panel:AddItem(font_color_reset)
+    end
+
+    spawnmenu.AddToolMenuOption("Options", "Player", "WeaponNameHud",
+                                "Weapon Name HUD", "", "", BuildMenu)
 end
 
 -- hud painter
 local function WeaponNameHudPaint()
     -- return early when the HUD shouldn't render
-    if (GetConVarNumber("cl_drawhud") == 0 or GetConVarNumber(CV_ENABLE) ==
-        0) then return end
+    if (not GetConVar("cl_drawhud"):GetBool() or
+        not GetConVar(CV_ENABLE):GetBool()) then return end
 
     local local_player = LocalPlayer()
     if (not local_player:Alive()) then return end
@@ -37,26 +66,29 @@ local function WeaponNameHudPaint()
 
     surface.SetFont("HudSelectionText")
 
-    -- margin for font to background
-    local margin = ScreenScale(6.5)
+    local font_color = Vector(GetConVar(CV_FONT_COLOR):GetString()):ToColor()
+    font_color.a = FONT_ALPHA
+
+    local padding = ScreenScale(6.5)
 
     local name = string.upper(weapon:GetPrintName())
+    -- BUG: STool is not capitalized
 
     local name_width, name_height = surface.GetTextSize(name)
-    local bg_width = name_width + 2 * margin
-    local bg_height = name_height + 2 * margin
+    local bg_width = name_width + (2 * padding)
+    local bg_height = name_height + (2 * padding)
 
     local bg_x = (ScrW() - bg_width) / 2
     local bg_y = ScreenScale(12)
-    local name_x = bg_x + margin
-    local name_y = bg_y + margin
+    local name_x = bg_x + padding
+    local name_y = bg_y + padding
 
     -- draw the background
     draw.RoundedBox(ScreenScale(1.525), bg_x, bg_y, bg_width, bg_height,
                     BG_COLOR)
 
     -- print the name
-    surface.SetTextColor(FONT_COLOR)
+    surface.SetTextColor(font_color)
     surface.SetTextPos(name_x, name_y)
     surface.DrawText(name)
 end
